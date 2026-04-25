@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # launchctl-user — idempotent user-domain LaunchAgent control
 # Manages user-domain (gui/$UID) LaunchAgents only. No sudo. No system domain.
-#
-# Inspired by https://chatgpt.com/share/69ec6bdd-aeec-8333-806e-f18e9c24647f
 set -euo pipefail
 
 u_id="$(id -u)"

@@ -235,10 +235,6 @@ defaults delete com.ameba.SwiftBar
 - **Tested on Apple Silicon.** The bash shebang detection covers Intel paths too; should work on Intel Macs but isn't validated there. Reports/PRs welcome.
 - **`launchctl print` output format is not formally stable across macOS versions.** Currently tested on macOS 14 and 15; older or newer versions may break the `awk -F'= '` parser.
 
-## Acknowledgments
-
-The `launchctl-user` helper is adapted from [this ChatGPT shared conversation on safe start-stop flows with Raycast](https://chatgpt.com/share/69ec6bdd-aeec-8333-806e-f18e9c24647f). The plist template in that conversation has portability bugs (notably `WorkingDirectory /Users/$USER` doesn't shell-expand in launchd plists, and `/tmp/` log paths are poor hygiene) — those are not used here. The helper script itself is structurally similar to that source with a small idempotency fix on exit codes.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
