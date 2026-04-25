@@ -216,7 +216,7 @@ build_block() {
   local block=""
   block+="${icon} ${svc} — ${state} (${detail}) | color=labelColor"$'\n'
   block+="-- Restart | bash=\"${HELPER}\" param1=\"restart\" param2=\"${svc}\" refresh=true terminal=false"$'\n'
-  block+="-- Hide from monitor | shell=\"/bin/zsh\" param1=\"-c\" param2=\"echo '${svc}' >> \\\"${BLOCKLIST}\\\"\" refresh=true terminal=false"$'\n'
+  block+="-- Hide from monitor | shell=\"/bin/zsh\" param1=\"-c\" param2=\"echo '${svc}' >> '${BLOCKLIST}'\" refresh=true terminal=false"$'\n'
   block+="-- Show details (launchctl print) | shell=\"/bin/zsh\" param1=\"-c\" param2=\"launchctl print '${DOMAIN}/${svc}'; echo; echo '--- press any key ---'; read -k1\" terminal=true"
   printf '%s' "$block"
 }
@@ -226,7 +226,7 @@ build_brew_block() {
   local block=""
   block+="${icon} brew/${name} — ${state} | color=labelColor"$'\n'
   block+="-- Restart | shell=\"/bin/zsh\" param1=\"-c\" param2=\"brew services restart '${name}'\" refresh=true terminal=false"$'\n'
-  block+="-- Hide from monitor | shell=\"/bin/zsh\" param1=\"-c\" param2=\"echo 'brew/${name}' >> \\\"${BLOCKLIST}\\\"\" refresh=true terminal=false"$'\n'
+  block+="-- Hide from monitor | shell=\"/bin/zsh\" param1=\"-c\" param2=\"echo 'brew/${name}' >> '${BLOCKLIST}'\" refresh=true terminal=false"$'\n'
   block+="-- Show details (brew services info) | shell=\"/bin/zsh\" param1=\"-c\" param2=\"brew services info '${name}'; echo; echo '--- press any key ---'; read -k1\" terminal=true"
   printf '%s' "$block"
 }
@@ -432,4 +432,4 @@ echo "Refresh now | refresh=true"
 echo "Edit blocklist | bash=\"open\" param1=\"-t\" param2=\"$BLOCKLIST\" terminal=false"
 BLOCKED_COUNT=$(grep -cE '^[^#[:space:]]' "$BLOCKLIST" 2>/dev/null)
 BLOCKED_COUNT=${BLOCKED_COUNT:-0}
-echo "Show blocklist (${BLOCKED_COUNT} entries) | shell=\"/bin/zsh\" param1=\"-c\" param2=\"cat \\\"${BLOCKLIST}\\\"; echo; echo '--- press any key ---'; read -k1\" terminal=true"
+echo "Show blocklist (${BLOCKED_COUNT} entries) | shell=\"/bin/zsh\" param1=\"-c\" param2=\"cat '${BLOCKLIST}'; echo; echo '--- press any key ---'; read -k1\" terminal=true"
