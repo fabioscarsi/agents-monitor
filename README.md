@@ -72,7 +72,7 @@ The installer runs a comprehensive preflight phase BEFORE touching disk:
 If preflight passes, then state-changing operations begin:
 - Copies scripts to `~/.local/bin/` and `~/.local/share/agents-monitor/`
 - Initializes `~/.config/agents-monitor/blocklist.conf` (only if missing — your edits are preserved on reinstall)
-- Configures the plugin: writes `PluginDirectory` if unset, OR symlinks the plugin into your existing PluginDirectory (single source of truth — the live plugin is always our managed file, no orphan copies)
+- Configures the plugin: writes `PluginDirectory` if unset, OR symlinks the plugin into your existing PluginDirectory (single source of truth — the live plugin is always the managed file under `~/.local/share/agents-monitor/swiftbar/`, no orphan copies)
 - Launches SwiftBar
 
 The menu-bar item should appear within 30 seconds. If not, see [Troubleshooting](#troubleshooting).
@@ -84,7 +84,7 @@ The menu-bar item should appear within 30 seconds. If not, see [Troubleshooting]
 ~/.local/bin/agents-monitor-uninstall                    # removes everything (interactive)
 ~/.config/agents-monitor/blocklist.conf                  # YOUR personal exclusions
 ~/.config/agents-monitor/local.conf.example              # optional knobs template
-~/.local/share/agents-monitor/swiftbar/agents-monitor.30s.sh  # the SwiftBar plugin (if our dir is the live one)
+~/.local/share/agents-monitor/swiftbar/agents-monitor.30s.sh  # the SwiftBar plugin (if the managed dir is the live one)
 ~/.local/share/agents-monitor/.plugin-installed-at       # pointer to live plugin location (only if non-default)
 ~/.cache/agents-monitor/pids.tsv                         # ephemeral state (PID stability + class history)
 ```
@@ -162,7 +162,7 @@ If you have stricter requirements (corp-managed Mac, MDM-enforced policies, secu
    defaults read com.ameba.SwiftBar PluginDirectory
    cat ~/.local/share/agents-monitor/.plugin-installed-at 2>/dev/null
    ```
-   The first command shows the directory SwiftBar reads from. If you previously had a custom PluginDirectory, the installer placed our plugin there as a symlink — the second command shows where.
+   The first command shows the directory SwiftBar reads from. If you previously had a custom PluginDirectory, the installer placed the plugin there as a symlink — the second command shows where.
 3. Verify the plugin file (or symlink) actually exists at that path and is executable: `ls -la <path>` should show `-rwxr-xr-x` or `lrwxr-xr-x`.
 4. If the file is a regular file but not executable: `chmod +x <path>`.
 5. Look at SwiftBar's plugin error pane: right-click the SwiftBar icon → SwiftBar shows per-plugin errors directly when a plugin crashes.
@@ -205,10 +205,6 @@ If you already use Raycast for everything else, SwiftBar runs alongside without 
 
 The plugin uses associative arrays (`declare -A`) for blocklist lookup and previous-state diffing. Default macOS `/bin/bash` is still 3.2 (frozen since 2007 for license reasons). The plugin re-execs itself under `/opt/homebrew/bin/bash` (Apple Silicon) or `/usr/local/bin/bash` (Intel) if launched with the system bash; you'll get a clear error message if neither is available.
 
-## Why these colors
-
-🟢🟡⚫⚪ instead of the conventional 🟢🟡🔴⚫. The original author has mild red-green color blindness; the ⚫/⚪ pair is unambiguous regardless of color perception.
-
 ## Uninstall
 
 ```bash
@@ -218,7 +214,7 @@ The plugin uses associative arrays (`declare -A`) for blocklist lookup and previ
 
 Interactive prompt by default; pass `-y` to skip confirmation. The uninstaller:
 - Quits SwiftBar so plugin file handles are released cleanly
-- Reverts the SwiftBar `PluginDirectory` preference **only if** this installer set it (i.e., it points at our managed dir)
+- Reverts the SwiftBar `PluginDirectory` preference **only if** this installer set it (i.e., it points at the managed dir)
 - Removes the symlink (or file) from a non-default SwiftBar PluginDirectory if the installer placed one there
 - Validates the recorded plugin pointer file before consuming it (refuses to act on a malformed `.plugin-installed-at`)
 - **Preserves `~/.config/agents-monitor/` by default** so your blocklist and tuning survive a "reinstall fresh" cycle. Use `--purge` to delete it.
