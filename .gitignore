@@ -1,0 +1,22 @@
+# Personal/local config — never publish
+etc/blocklist.conf
+etc/local.conf
+
+# macOS noise
+.DS_Store
+._*
+
+# Backup files (created by users when iterating locally)
+*.bak
+*.bak-*
+
+# Editor scratch
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Test/development scratch
+/tmp/
+/scratch/

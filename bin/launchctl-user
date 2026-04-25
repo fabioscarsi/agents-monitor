@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# launchctl-user — idempotent user-domain LaunchAgent control
+# Manages user-domain (gui/$UID) LaunchAgents only. No sudo. No system domain.
+#
+# Inspired by https://chatgpt.com/share/69ec6bdd-aeec-8333-806e-f18e9c24647f
+set -euo pipefail
+
+u_id="$(id -u)"
+domain="gui/${u_id}"
+
+# A.1 — Same label allowlist as the SwiftBar plugin (defense in depth).
+# Reject anything that could carry shell metacharacters into launchctl.
+SAFE_LABEL_RE='^[A-Za-z0-9._-]+$'
+
+usage() {
+  cat >&2 <<EOF
+usage: $0 {status|start|restart|stop} <label> [plist_path]
+       $0 restart-many <label1> [<label2> ...]
+
+Examples:
+  $0 status com.example.myagent
+  $0 start  com.example.myagent ~/Library/LaunchAgents/com.example.myagent.plist
+  $0 restart com.example.myagent
+  $0 restart-many com.example.foo com.example.bar
+  $0 stop com.example.myagent
+
+Notes:
+- Operates only in the user domain (gui/\$UID); never touches system services.
+- Labels must match $SAFE_LABEL_RE — anything else is refused.
+- 'start'/'restart' are idempotent. If the service is unknown, you must pass
+  the plist path so it can be bootstrapped first.
+- 'stop' is a no-op if the service is already not loaded.
+- 'restart-many' restarts each label in sequence; failures don't halt the chain.
+EOF
+  exit 2
+}
+
+is_safe_label() { [[ "$1" =~ $SAFE_LABEL_RE ]]; }
+
+is_known() {
+  local label="$1"
+  launchctl print "${domain}/${label}" >/dev/null 2>&1
+}
+
+status() {
+  local label="$1"
+  if ! is_known "$label"; then echo "absent"; return 3; fi
+  local out pid last
+  out="$(launchctl print "${domain}/${label}" 2>/dev/null || true)"
+  pid="$(awk -F'= ' '/^[[:space:]]*pid = /{print $2; exit}' <<<"$out")"
+  last="$(awk -F'= ' '/^[[:space:]]*last exit code = /{print $2; exit}' <<<"$out")"
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    echo "running (pid ${pid})"
+  elif [[ -n "$last" ]]; then
+    echo "loaded, not running (last exit ${last})"
+  else
+    echo "loaded"
+  fi
+  return 0
+}
+
+# C.2 — Bootstrap can fail with EALREADY (rc 5/17) when service is already
+# loaded under a different plist. In that case bootout and retry once.
+do_bootstrap() {
+  local plist="$1"
+  if launchctl bootstrap "${domain}" "$plist" 2>/dev/null; then
+    return 0
+  fi
+  local rc=$?
+  if [[ $rc -eq 5 || $rc -eq 17 ]]; then
+    # Already bootstrapped under a stale plist — bounce and retry.
+    launchctl bootout "${domain}/${label}" 2>/dev/null || true
+    sleep 0.3
+    launchctl bootstrap "${domain}" "$plist"
+    return $?
+  fi
+  return $rc
+}
+
+cmd="${1:-}"; shift || usage
+
+case "$cmd" in
+  status)
+    label="${1:-}"; [[ -n "$label" ]] || usage
+    is_safe_label "$label" || { echo "Refused: unsafe label '$label'" >&2; exit 4; }
+    status "$label"; exit $?
+    ;;
+  start|restart)
+    label="${1:-}"; plist="${2:-}"
+    [[ -n "$label" ]] || usage
+    is_safe_label "$label" || { echo "Refused: unsafe label '$label'" >&2; exit 4; }
+    if is_known "$label"; then
+      launchctl kickstart -k "${domain}/${label}" || true
+    else
+      [[ -n "$plist" ]] || { echo "Need plist_path to bootstrap" >&2; exit 2; }
+      do_bootstrap "$plist"
+      launchctl kickstart -k "${domain}/${label}" || true
+    fi
+    status "$label" || true
+    exit 0
+    ;;
+  stop)
+    label="${1:-}"; [[ -n "$label" ]] || usage
+    is_safe_label "$label" || { echo "Refused: unsafe label '$label'" >&2; exit 4; }
+    if is_known "$label"; then
+      launchctl bootout "${domain}/${label}" 2>/dev/null || true
+    fi
+    status "$label" || true
+    exit 0
+    ;;
+  restart-many)
+    # C.5 — Batch restart subcommand. Avoids "/bin/zsh -c"-composed shell text
+    # for the SwiftBar "Restart all" actions: caller passes labels as args.
+    [[ $# -gt 0 ]] || usage
+    rc_total=0
+    for label in "$@"; do
+      if ! is_safe_label "$label"; then
+        echo "Skipped (unsafe label): $label" >&2
+        rc_total=1
+        continue
+      fi
+      if is_known "$label"; then
+        launchctl kickstart -k "${domain}/${label}" || rc_total=1
+      else
+        echo "Skipped (not known): $label" >&2
+        rc_total=1
+      fi
+    done
+    exit $rc_total
+    ;;
+  *)
+    usage
+    ;;
+esac

@@ -1,0 +1,9 @@
+# Agents Monitor blocklist — one label per line. Lines starting with # are comments.
+# Click "Hide" on a service in the menu to append it here automatically.
+# Edit this file to remove a label and the service will reappear at next refresh.
+# For brew services, the entry is prefixed with `brew/` (e.g. `brew/neo4j`).
+#
+# Examples (uncomment to use):
+#
+# com.example.someAppHelper
+# brew/somebrewservice

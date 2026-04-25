@@ -1,0 +1,32 @@
+# Agents Monitor — optional local overrides.
+#
+# Copy this file to ~/.config/agents-monitor/local.conf and uncomment any line
+# you want to override. The plugin script reads this file at every refresh
+# (every 30 seconds), so changes take effect on the next tick.
+#
+# IMPORTANT: this file is parsed AS DATA, not as bash. Only KEY=VALUE lines are
+# recognized, and only keys in the allowlist below take effect. Any other line
+# (including arbitrary shell commands) is silently ignored. This is deliberate
+# — local.conf must NOT be a code-execution sink.
+#
+# Lines starting with # are comments. Surrounding whitespace and quotes around
+# the value are stripped.
+#
+# --- Recognized keys ---
+
+# FLAP_WINDOW=120
+#   Flap detection window in seconds. A service is classified as 🟡 flapping
+#   if its PID changes within this many seconds. Lower = more sensitive.
+#   Must be a positive integer. Invalid values are ignored.
+
+# --- Path overrides (env vars only) ---
+#
+# To override the install paths, set these in your shell environment BEFORE
+# launching SwiftBar (NOT in local.conf — they're needed before this file is
+# read):
+#
+#   export AGENTS_MONITOR_CONFIG_DIR="$HOME/.config/agents-monitor"
+#   export AGENTS_MONITOR_CACHE_DIR="$HOME/.cache/agents-monitor"
+#   export AGENTS_MONITOR_HELPER="$HOME/.local/bin/launchctl-user"
+#
+# In practice you should never need to change these.

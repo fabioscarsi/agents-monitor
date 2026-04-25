@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# agents-monitor-uninstall — remove files installed by Agents Monitor.
+#
+# By default PRESERVES user config (~/.config/agents-monitor/blocklist.conf
+# and local.conf) — your hide list and tuning survives reinstall.
+# Use --purge to remove user config too.
+#
+# Does NOT remove SwiftBar.app itself.
+set -uo pipefail
+
+PLUGIN_FILENAME="agents-monitor.30s.sh"
+SHARE_DIR="$HOME/.local/share/agents-monitor"
+CONFIG_DIR="$HOME/.config/agents-monitor"
+
+PURGE=0
+ASSUME_YES=0
+for arg in "$@"; do
+  case "$arg" in
+    --purge) PURGE=1 ;;
+    -y|--yes) ASSUME_YES=1 ;;
+    -h|--help)
+      cat <<EOF
+usage: $0 [--purge] [-y|--yes]
+
+  --purge    Also remove ~/.config/agents-monitor/ (your blocklist + local.conf).
+             Default behavior preserves user config.
+  -y|--yes   Skip the confirmation prompt.
+EOF
+      exit 0
+      ;;
+    *) echo "Unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+# Always-removed paths (binaries, share dir, cache).
+PATHS=(
+  "$HOME/.local/bin/launchctl-user"
+  "$HOME/.local/bin/agents-monitor-uninstall"
+  "$SHARE_DIR"
+  "$HOME/.cache/agents-monitor"
+)
+# Only removed with --purge
+CONFIG_PATHS=(
+  "$CONFIG_DIR"
+)
+
+# C.3 — Validate .plugin-installed-at pointer before consuming it.
+# Must be: absolute path, basename = expected, parent != root, file exists.
+EXTRA_PLUGIN_PATH=""
+if [[ -f "$SHARE_DIR/.plugin-installed-at" ]]; then
+  candidate="$(head -n1 "$SHARE_DIR/.plugin-installed-at" 2>/dev/null)"
+  parent_dir="$(dirname "$candidate")"
+  base="$(basename "$candidate")"
+  if [[ "$candidate" == /* && "$base" == "$PLUGIN_FILENAME" && -f "$candidate" && "$parent_dir" != "/" ]]; then
+    EXTRA_PLUGIN_PATH="$candidate"
+  else
+    echo "Warning: .plugin-installed-at pointer is malformed or stale; ignoring." >&2
+    echo "  Recorded path: $candidate" >&2
+  fi
+fi
+
+# Also detect a plugin file in the live SwiftBar PluginDirectory.
+LIVE_DIR="$(defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || true)"
+if [[ "${LIVE_DIR:-}" == "~"* ]]; then
+  LIVE_DIR="${HOME}${LIVE_DIR:1}"
+fi
+LIVE_PLUGIN_PATH=""
+if [[ -n "${LIVE_DIR:-}" && "$LIVE_DIR" != "$SHARE_DIR/swiftbar" && -f "$LIVE_DIR/$PLUGIN_FILENAME" ]]; then
+  if [[ "$LIVE_DIR" == /* && -d "$LIVE_DIR" ]]; then
+    LIVE_PLUGIN_PATH="$LIVE_DIR/$PLUGIN_FILENAME"
+  fi
+fi
+
+# Display plan.
+echo "Uninstall plan:"
+for p in "${PATHS[@]}"; do
+  if [[ -e "$p" ]]; then echo "  ✓ remove: $p"; else echo "  - skip:   $p (not present)"; fi
+done
+if [[ -n "$EXTRA_PLUGIN_PATH" ]]; then
+  echo "  ✓ remove: $EXTRA_PLUGIN_PATH (plugin in non-default SwiftBar dir, recorded)"
+fi
+if [[ -n "$LIVE_PLUGIN_PATH" && "$LIVE_PLUGIN_PATH" != "$EXTRA_PLUGIN_PATH" ]]; then
+  echo "  ✓ remove: $LIVE_PLUGIN_PATH (plugin in current SwiftBar PluginDirectory)"
+fi
+if [[ $PURGE -eq 1 ]]; then
+  for p in "${CONFIG_PATHS[@]}"; do
+    if [[ -e "$p" ]]; then echo "  ✓ remove: $p (--purge)"; else echo "  - skip:   $p (not present)"; fi
+  done
+else
+  if [[ -e "$CONFIG_DIR" ]]; then
+    echo "  ⓘ preserve: $CONFIG_DIR (your blocklist + local.conf — use --purge to delete)"
+  fi
+fi
+
+echo
+echo "Will revert SwiftBar PluginDirectory preference only if it points at our managed dir."
+echo "Will NOT remove SwiftBar.app or its other plugins."
+echo "To go further after this:"
+echo "    brew uninstall --cask swiftbar"
+echo "    defaults delete com.ameba.SwiftBar"
+
+if [[ $ASSUME_YES -eq 0 ]]; then
+  echo
+  read -r -p "Proceed? [y/N] " ans
+  case "$ans" in
+    y|Y|yes|YES) ;;
+    *) echo "Aborted."; exit 0 ;;
+  esac
+fi
+
+# Quit SwiftBar so plugin file handles release.
+if pgrep -x SwiftBar >/dev/null 2>&1; then
+  echo "quitting SwiftBar..."
+  osascript -e 'tell application "SwiftBar" to quit' 2>/dev/null || true
+  sleep 1
+fi
+
+# Revert PluginDirectory preference only if it points at our managed dir.
+if [[ -n "${LIVE_DIR:-}" && "$LIVE_DIR" == "$SHARE_DIR/swiftbar" ]]; then
+  defaults delete com.ameba.SwiftBar PluginDirectory 2>/dev/null && \
+    echo "reverted: SwiftBar PluginDirectory preference"
+fi
+
+# Remove plugin from non-default dir if present.
+if [[ -n "$EXTRA_PLUGIN_PATH" ]]; then
+  rm -f "$EXTRA_PLUGIN_PATH" && echo "removed: $EXTRA_PLUGIN_PATH"
+fi
+if [[ -n "$LIVE_PLUGIN_PATH" && "$LIVE_PLUGIN_PATH" != "$EXTRA_PLUGIN_PATH" ]]; then
+  rm -f "$LIVE_PLUGIN_PATH" && echo "removed: $LIVE_PLUGIN_PATH"
+fi
+
+for p in "${PATHS[@]}"; do
+  if [[ -e "$p" ]]; then
+    rm -rf "$p" && echo "removed: $p"
+  fi
+done
+
+if [[ $PURGE -eq 1 ]]; then
+  for p in "${CONFIG_PATHS[@]}"; do
+    if [[ -e "$p" ]]; then
+      rm -rf "$p" && echo "removed: $p"
+    fi
+  done
+else
+  if [[ -e "$CONFIG_DIR" ]]; then
+    echo "preserved: $CONFIG_DIR (use --purge to delete on next run)"
+  fi
+fi
+
+echo
+echo "Done."
