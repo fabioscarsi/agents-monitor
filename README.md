@@ -235,6 +235,19 @@ defaults delete com.ameba.SwiftBar
 - **Tested on Apple Silicon.** The bash shebang detection covers Intel paths too; should work on Intel Macs but isn't validated there. Reports/PRs welcome.
 - **`launchctl print` output format is not formally stable across macOS versions.** Currently tested on macOS 14 and 15; older or newer versions may break the `awk -F'= '` parser.
 
+## Development
+
+Maintainer publishes via the `github-publish` skill (canonical at `~/Projects/openspace/openspace/skills/github-publish/`). The repo has a `ship` symlink pointing to that skill's mono-script:
+
+```bash
+./ship "fix: blah"                    # commit (if dirty) + push + identity verify
+./ship "feat: new view" --tag v0.2.0  # same + create + push semver tag
+```
+
+The script enforces fail-closed gates: refuses force-push, retag, malformed tag, push from non-`main` without explicit `--branch` override, and verifies `local HEAD == origin/main` after every push. See the skill's SKILL.md for the full contract.
+
+The `ship` symlink is local-only (gitignored) — not part of the cloned repo for end-users.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

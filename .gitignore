@@ -20,3 +20,4 @@ etc/local.conf
 # Test/development scratch
 /tmp/
 /scratch/
+ship
